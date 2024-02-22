@@ -1,11 +1,11 @@
 let speed = 0;
-let gravitySpeed = 0.1;
+let gravitySpeed = 0;
 let rocketSpeed = 0.4;
 let rotation = 0;
 let rotationSpeed = 0.05;
 let sHasBeenPressed = false;
 let translateX = -360;
-let translateY = 0;
+let translateY = -2800;
 let spaceColor = color(13, 15, 40);
 let atmosphereColor = color(26, 25, 60);
 let earthColor = color(229, 39, 137);
@@ -134,10 +134,30 @@ function drawStars(amount) {
   }
 }
 function drawCharacter() {
-  if (speed <= 0) {
+  if (speed <= 7) {
     //legs up (falling)
-    scale(0.6);
+    scale(0.5);
+    strokeJoin(ROUND);
+    strokeWeight(5);
+    beginShape(); //jetpack thrusts
+
+    endShape();
     fill(255, 255, 255);
+    stroke(44, 42, 45);
+    beginShape(); //jetpack outline
+    vertex(-50, 50);
+    bezierVertex(-50, 50, -90, 40, -95, 80);
+    bezierVertex(-95, 80, -97, 95, -97, 95);
+    bezierVertex(-97, 95, -105, 148, -87, 148);
+    bezierVertex(-87, 148, -53, 158, -50, 155);
+    endShape();
+    beginShape(); //jetpack corner detail
+    vertex(-86, 60);
+    bezierVertex(-83, 75, -50, 70, -50, 70);
+    endShape();
+    rotate(PI / 2);
+    rect(93, 78, 25, 18, 15);
+    rotate(-PI / 2);
     noStroke();
     beginShape(); //body white color fill
     vertex(-60, 56);
@@ -150,8 +170,6 @@ function drawCharacter() {
     vertex(26, 50);
     endShape();
     stroke(44, 42, 45);
-    strokeJoin(ROUND);
-    strokeWeight(5);
     beginShape(); //his right leg outline 1 (foot and upper left part)
     vertex(37, 175);
     bezierVertex(60, 208, 15, 210, 15, 210);
