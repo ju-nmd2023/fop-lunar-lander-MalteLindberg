@@ -1,37 +1,68 @@
-let speed = 0;
-let gravitySpeed = 0;
+let gameStart = false;
+let gameOver = false;
+let gameOverHasBeenDrawn = false;
+let gradientBg;
+let velocity = 0;
+let gravitySpeed = 0.1;
+let maxVelocity = 6;
+let minVelocity = -4;
 let rocketSpeed = 0.4;
 let rotation = 0;
 let rotationSpeed = 0.05;
 let sHasBeenPressed = false;
-let translateX = -360;
-let translateY = -2800;
-let spaceColor = color(13, 15, 40);
-let atmosphereColor = color(26, 25, 60);
-let earthColor = color(229, 39, 137);
+let translateX = -320;
+let translateY = 0;
 let starX = [];
 let starY = [];
 let starSize = [];
 let starBrightness = [];
 let starsDrawn = false;
-let gameStart = true;
 let menuHasBeenDrawn = false;
-let gradientBg = drawingContext.createLinearGradient(720, 0, 720, 3600);
-let gradientHomeBg = drawingContext.createLinearGradient(width / 2, 0, width / 2, height);
-let font;
+let gradientHomeBg;
+let spaceColor;
+let atmosphereColor;
+let earthColor;
+let mountainImg;
+let landingPadImg;
+let landingPadX = 0;
+let landingPadY = 4500;
+let landingPadHasBeenCreated = false;
+let characterX = 720;
+let characterY = translateY - 70;
+let menuTranslateX = 0;
+let menuTranslateY = 0;
+let menuRotation = 0;
+let menuMovingRight = true;
+let menuMovingDown = true;
+let menuMovingSpeed = 1.5;
+let characterTranslateX = 360;
+let characterTranslateY = 70;
+let gameLost = false;
+let gameWon = false;
 function preload() {
-  font = loadFont("ClashDisplay-Medium.otf");
+  mountainImg = loadImage("assets/mountains.png");
+  landingPadImg = loadImage("assets/landingPad.png");
 }
 function setup() {
-  createCanvas(720, 600);
+  let canvas = createCanvas(720, 600);
+  frameRate(30);
   noStroke();
+  gradientBg = drawingContext.createLinearGradient(720, 0, 720, 5000);
+  gradientHomeBg = drawingContext.createLinearGradient(width / 2, 0, width / 2, height * 1.3);
+  spaceColor = color(13, 15, 40);
+  atmosphereColor = color(26, 25, 60);
+  earthColor = color(229, 39, 137);
 }
 
 function draw() {
-  clear();
   if (gameStart) {
+    clear();
     drawGame();
+    collisionDetection();
+  } else if (gameOver) {
+    drawGameOver();
   } else {
+    clear();
     drawMainMenu();
   }
 }
@@ -45,76 +76,126 @@ function drawGame() {
   gradientBg.addColorStop(1, earthColor);
   translate(translateX, translateY);
   drawingContext.fillStyle = gradientBg;
-  rect(0, 0, 1440, 3600); // background
-
-  //stars
-  drawStars(1000);
+  rect(0, 0, 1440, 5000); // background
+  drawStars(1000); //stars
+  image(mountainImg, 0, 3516); //mountains
+  createLandingPad(); //landing pad
   pop(); //everything that moves pop
 
   push(); //everything that doesn't move push(character)
   //character
   sHasBeenPressed = false;
-  translate(360, 70);
+  translate(characterTranslateX, characterTranslateY);
   rotate(rotation);
   if (keyIsDown(83)) {
     // S key for moving up
     sHasBeenPressed = true;
-    if (speed <= 6) {
-      //to make the speed a maximum of 6
-      speed += rocketSpeed;
+    if (velocity <= maxVelocity) {
+      //to make the velocity stop going up
+      velocity += rocketSpeed;
     }
-    if (speed >= 0) {
+    if (velocity >= 0) {
       //to make it not move backwards before speeding up on the X axis
-      translateX -= Math.sin(rotation) * speed; //movement on the X axis
+      translateX -= Math.sin(rotation) * velocity; //movement on the X axis
+      characterX -= Math.sin(rotation) * velocity; //to make the collision detection work
     }
-    translateY += Math.cos(rotation) * speed; //movement on the Y axis
+    translateY += Math.cos(rotation) * velocity; //movement on the Y axis
+    characterY += Math.cos(rotation) * velocity; //to make the collision detection work
   } else {
-    if (speed > -4) {
-      //gravity
-      speed -= gravitySpeed;
+    if (velocity > minVelocity) {
+      velocity -= gravitySpeed; //gravity
     }
-    translateY += speed;
-    if (speed > 0) {
+    translateY += velocity;
+    characterY += velocity; //to make the collision detection work
+    if (velocity > 0) {
       //to keep it moving to the sides after 'S' button has been released
-      translateX -= Math.sin(rotation) * speed;
+      translateX -= Math.sin(rotation) * velocity;
+      characterX -= Math.sin(rotation) * velocity; //to make the collision detection work
     }
   }
   if (keyIsDown(65)) {
-    // A key for rotating right
     if (rotation > -1.5) {
-      //to stop it from moving upside down to the right
-      rotation -= rotationSpeed;
+      rotation -= rotationSpeed; //to stop it from moving upside down to the right
     }
   }
   if (keyIsDown(68)) {
-    // D key for rotating left
     if (rotation < 1.5) {
-      //to stop it from moving upside down to the left
-      rotation += rotationSpeed;
+      rotation += rotationSpeed; //to stop it from moving upside down to the left
     }
   }
-  print(speed); //speed for testing
   //the rocket
   drawCharacter();
   pop(); //everything that doesn't move pop
 }
 function drawMainMenu() {
   if (!menuHasBeenDrawn) {
-    let btn = createButton("click me");
     menuHasBeenDrawn = true;
   }
+  push();
   gradientHomeBg.addColorStop(0, spaceColor);
   gradientHomeBg.addColorStop(0.6, spaceColor);
   gradientHomeBg.addColorStop(1, earthColor);
-  translate(0, 0);
   drawingContext.fillStyle = gradientHomeBg;
   rect(0, 0, width, height); // background
+  drawStars(1000);
+  push();
+  if (menuTranslateX > 680) {
+    if (menuMovingRight === true) {
+      menuMovingRight = false;
+    }
+  }
+  if (menuTranslateX < 20) {
+    if (menuMovingRight === false) {
+      menuMovingRight = true;
+    }
+  }
+  if (menuTranslateY > 580) {
+    if (menuMovingDown === true) {
+      menuMovingDown = false;
+    }
+  }
+  if (menuTranslateY < 20) {
+    if (menuMovingDown === false) {
+      menuMovingDown = true;
+    }
+  }
+  if (menuMovingRight === true) {
+    menuTranslateX += menuMovingSpeed;
+  }
+  if (menuMovingRight === false) {
+    menuTranslateX -= menuMovingSpeed;
+  }
+  if (menuMovingDown === true) {
+    menuTranslateY += menuMovingSpeed;
+  }
+  if (menuMovingDown === false) {
+    menuTranslateY -= menuMovingSpeed;
+  }
+  menuRotation += 0.01;
+  translate(menuTranslateX, menuTranslateY);
+  rotate(menuRotation);
+  drawCharacter();
+  pop();
   translate(width / 2, height / 2);
-  textSize(50);
+  textSize(80);
+  textFont("Hoover");
   fill("white");
-  textFont(font);
-  text("Astro", -125, -140);
-  text("Jumper", -66, -104);
+  text("Astro", -145, -100);
+  text("Jumper", -84, -44);
+  translate(-width / 2, -height / 2);
+  if (frameCount % 60 < 40) {
+    textSize(20);
+    textAlign(CENTER);
+    fill("white");
+    text("Press 'SPACE' to start", 720 / 2, 420);
+  }
+  if (keyIsDown(32)) {
+    gameStart = true;
+    menuHasBeenDrawn = false;
+    gameOver = false;
+  }
+
+  pop();
 }
 function drawStars(amount) {
   if (starsDrawn === false) {
@@ -134,29 +215,56 @@ function drawStars(amount) {
   }
 }
 function drawCharacter() {
-  if (speed <= 7) {
-    //legs up (falling)
-    scale(0.5);
+  if (velocity <= 7) {
+    scale(0.45);
     strokeJoin(ROUND);
+    //legs up (falling)
+    if (sHasBeenPressed && frameCount % 10 < 8) {
+      fill(254, 97, 52);
+      stroke(44, 42, 45);
+      strokeWeight(3);
+      beginShape(); //jetpack thrusts orange
+      vertex(-88, 140);
+      bezierVertex(-88, 140, -100, 160, -100, 170);
+      bezierVertex(-100, 170, -92, 160, -90, 165);
+      bezierVertex(-90, 165, -110, 190, -100, 200);
+      bezierVertex(-100, 200, -95, 185, -90, 185);
+      bezierVertex(-85, 185, -95, 215, -95, 215);
+      vertex(-90, 215);
+      vertex(-90, 240);
+      bezierVertex(-90, 240, -75, 230, -75, 220);
+      vertex(-71, 224);
+      vertex(-60, 200);
+      vertex(-60, 150);
+      endShape();
+      fill(255, 169, 50);
+      beginShape(); //jetpack thrusts yellow
+      vertex(-77, 150);
+      vertex(-83, 165);
+      bezierVertex(-83, 165, -79, 160, -77, 163);
+      bezierVertex(-75, 165, -82, 178, -80, 180);
+      bezierVertex(-80, 182, -75, 172, -75, 172);
+      bezierVertex(-75, 172, -86, 200, -85, 205);
+      bezierVertex(-83, 205, -70, 182, -70, 180);
+      vertex(-60, 150);
+      endShape();
+    }
     strokeWeight(5);
-    beginShape(); //jetpack thrusts
-
-    endShape();
     fill(255, 255, 255);
     stroke(44, 42, 45);
     beginShape(); //jetpack outline
-    vertex(-50, 50);
-    bezierVertex(-50, 50, -90, 40, -95, 80);
-    bezierVertex(-95, 80, -97, 95, -97, 95);
-    bezierVertex(-97, 95, -105, 148, -87, 148);
-    bezierVertex(-87, 148, -53, 158, -50, 155);
+    vertex(-40, 50);
+    bezierVertex(-40, 50, -80, 40, -85, 80);
+    bezierVertex(-85, 80, -87, 95, -87, 95);
+    bezierVertex(-87, 95, -95, 148, -77, 148);
+    bezierVertex(-77, 148, -43, 158, -40, 155);
     endShape();
     beginShape(); //jetpack corner detail
-    vertex(-86, 60);
-    bezierVertex(-83, 75, -50, 70, -50, 70);
+    vertex(-76, 60);
+    bezierVertex(-73, 75, -40, 70, -40, 70);
     endShape();
     rotate(PI / 2);
-    rect(93, 78, 25, 18, 15);
+    rect(93, 68, 25, 18, 15);
     rotate(-PI / 2);
     noStroke();
     beginShape(); //body white color fill
@@ -287,7 +395,102 @@ function drawCharacter() {
     pop();
     rotate(0.05);
   }
-  if (speed > 0) {
+  if (velocity > 0) {
     //legs down (flying)
+  }
+}
+function createLandingPad() {
+  if (!landingPadHasBeenCreated) {
+    landingPadX = random(30, 1210);
+  }
+  image(landingPadImg, landingPadX, landingPadY, 200, 200);
+  landingPadHasBeenCreated = true;
+}
+function collisionDetection() {
+  print(1420 - characterX + " " + Math.abs(characterY) + " " + landingPadX + " " + landingPadY);
+  if (Math.abs(translateY) > 4400 && Math.abs(translateY) < 4670) {
+    if (1420 - characterX > landingPadX && 1420 - characterX < landingPadX + 200) {
+      //landing pad collision
+      print("You have landed");
+      gameWon = true;
+      gameOver = true;
+      gameStart = false;
+    }
+  }
+  if (translateY < -4950 || translateY > 150 || translateX < -1160 || translateX > 450) {
+    gameLost = true;
+    gameOver = true;
+    gameStart = false;
+  }
+}
+function drawGameOver() {
+  //transparent overlay
+  if (!gameOverHasBeenDrawn && gameWon) {
+    push();
+    fill("rgba(43, 41, 44, 0.5)");
+    rectMode(CENTER);
+    rect(360, 300, 720, 600);
+    rect(360, 300, 360, 300, 20);
+    textSize(50);
+    fill("white");
+    textFont("Hoover");
+    textAlign(CENTER);
+    text("YOU WON!", 720 / 2, 220);
+    textSize(20);
+    text("Press 'ESC' to go home", 720 / 2, 420);
+    text("Press 'R' to restart", 720 / 2, 380);
+    pop();
+    gameOverHasBeenDrawn = true;
+  }
+  if (!gameOverHasBeenDrawn && gameLost) {
+    push();
+    fill("rgba(43, 41, 44, 0.5)");
+    rectMode(CENTER);
+    rect(360, 300, 720, 600);
+    rect(360, 300, 360, 300, 20);
+    textSize(50);
+    fill("white");
+    textFont("Hoover");
+    textAlign(CENTER);
+    text("YOU LOST!", 720 / 2, 220);
+    textSize(18);
+    text("You need to land on the platform", 720 / 2, 260);
+    textSize(20);
+    text("Press 'ESC' to go home", 720 / 2, 420);
+    text("Press 'R' to restart", 720 / 2, 380);
+    pop();
+    gameOverHasBeenDrawn = true;
+  }
+  if (keyIsDown(82)) {
+    // R key for restarting
+    gameOver = false;
+    gameOverHasBeenDrawn = false;
+    gameStart = true;
+    translateX = -320;
+    translateY = 0;
+    characterX = 720;
+    characterY = translateY - 70;
+    landingPadHasBeenCreated = false;
+    velocity = 0;
+    starsDrawn = false;
+    gameLost = false;
+    gameWon = false;
+  }
+  if (keyIsDown(27)) {
+    // ESC key for going home
+    gameOver = false;
+    gameOverHasBeenDrawn = false;
+    gameStart = false;
+    menuHasBeenDrawn = false;
+    translateX = -320;
+    translateY = 0;
+    characterX = 720;
+    characterY = translateY - 70;
+    landingPadHasBeenCreated = false;
+    velocity = 0;
+    starsDrawn = false;
+    gameLost = false;
+    gameWon = false;
+    clear();
   }
 }
