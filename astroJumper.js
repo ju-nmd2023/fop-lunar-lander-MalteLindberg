@@ -3,9 +3,9 @@ let gameOver = false;
 let gameOverHasBeenDrawn = false;
 let gradientBg;
 let velocity = 0;
-let gravitySpeed = 0.1;
+let gravitySpeed = 0.08;
 let maxVelocity = 6;
-let minVelocity = -4;
+let minVelocity = -8;
 let rocketSpeed = 0.4;
 let rotation = 0;
 let rotationSpeed = 0.05;
@@ -39,6 +39,9 @@ let characterTranslateX = 360;
 let characterTranslateY = 70;
 let gameLost = false;
 let gameWon = false;
+let gameOverText = "";
+let leftAtmosphereText = "";
+let drawGuide = false;
 function preload() {
   mountainImg = loadImage("assets/mountains.png");
   landingPadImg = loadImage("assets/landingPad.png");
@@ -59,11 +62,14 @@ function draw() {
     clear();
     drawGame();
     collisionDetection();
+    drawStatistics();
+    landingWarning();
   } else if (gameOver) {
     drawGameOver();
   } else {
     clear();
     drawMainMenu();
+    guideWindow();
   }
 }
 function drawGame() {
@@ -74,7 +80,7 @@ function drawGame() {
   gradientBg.addColorStop(0.2, atmosphereColor);
   gradientBg.addColorStop(0.3, atmosphereColor);
   gradientBg.addColorStop(1, earthColor);
-  translate(translateX, translateY);
+  translate(translateX, translateY); //movement of the environment
   drawingContext.fillStyle = gradientBg;
   rect(0, 0, 1440, 5000); // background
   drawStars(1000); //stars
@@ -87,8 +93,8 @@ function drawGame() {
   sHasBeenPressed = false;
   translate(characterTranslateX, characterTranslateY);
   rotate(rotation);
-  if (keyIsDown(83)) {
-    // S key for moving up
+  if (keyIsDown(40)) {
+    // DOWN ARROW key for moving up
     sHasBeenPressed = true;
     if (velocity <= maxVelocity) {
       //to make the velocity stop going up
@@ -113,17 +119,16 @@ function drawGame() {
       characterX -= Math.sin(rotation) * velocity; //to make the collision detection work
     }
   }
-  if (keyIsDown(65)) {
+  if (keyIsDown(37)) {
     if (rotation > -1.5) {
       rotation -= rotationSpeed; //to stop it from moving upside down to the right
     }
   }
-  if (keyIsDown(68)) {
+  if (keyIsDown(39)) {
     if (rotation < 1.5) {
       rotation += rotationSpeed; //to stop it from moving upside down to the left
     }
   }
-  //the rocket
   drawCharacter();
   pop(); //everything that doesn't move pop
 }
@@ -138,6 +143,29 @@ function drawMainMenu() {
   drawingContext.fillStyle = gradientHomeBg;
   rect(0, 0, width, height); // background
   drawStars(1000);
+  translate(width / 2, height / 2);
+  textSize(80);
+  textFont("Hoover");
+  fill("white");
+  text("Astro", -145, -100);
+  text("Jumper", -84, -44);
+  translate(-width / 2, -height / 2);
+  if (frameCount % 60 < 40 && drawGuide === false) {
+    textAlign(CENTER);
+    fill("white");
+    textSize(20);
+    text("Press 'I' for instructions", 720 / 2, 420);
+    text("Press 'SPACE' to start", 720 / 2, 460);
+  }
+  if (keyIsDown(32) && drawGuide === false) {
+    gameStart = true;
+    menuHasBeenDrawn = false;
+    gameOver = false;
+  }
+  if (keyIsDown(73)) {
+    drawGuide = true;
+  }
+  pop();
   push();
   if (menuTranslateX > 680) {
     if (menuMovingRight === true) {
@@ -176,26 +204,34 @@ function drawMainMenu() {
   rotate(menuRotation);
   drawCharacter();
   pop();
-  translate(width / 2, height / 2);
-  textSize(80);
-  textFont("Hoover");
-  fill("white");
-  text("Astro", -145, -100);
-  text("Jumper", -84, -44);
-  translate(-width / 2, -height / 2);
-  if (frameCount % 60 < 40) {
-    textSize(20);
-    textAlign(CENTER);
+}
+function guideWindow() {
+  if (drawGuide) {
+    push();
+    fill("rgba(5, 5, 5, 0.4)");
+    rectMode(CENTER);
+    rect(360, 300, 720, 600);
+    fill("rgba(5, 5, 5, 0.8)");
+    rect(360, 300, 360, 300, 20);
+    textSize(40);
     fill("white");
-    text("Press 'SPACE' to start", 720 / 2, 420);
+    textFont("Hoover");
+    textAlign(CENTER);
+    text("INSTRUCTIONS", 720 / 2, 220);
+    textSize(15);
+    text("Use the 'UP ARROW' to fly", 720 / 2, 260);
+    text("Use the 'LEFT ARROW' and 'RIGHT ARROW' to rotate", 720 / 2, 290);
+    text("Find and land on the landing pad to win", 720 / 2, 320);
+    text("If you land too hard or leave the atmosphere, you lose", 720 / 2, 350);
+    textSize(20);
+    if (frameCount % 60 < 40) {
+      text("Press 'ESC' to go back", 720 / 2, 420);
+    }
+    pop();
   }
-  if (keyIsDown(32)) {
-    gameStart = true;
-    menuHasBeenDrawn = false;
-    gameOver = false;
+  if (keyIsDown(27)) {
+    drawGuide = false;
   }
-
-  pop();
 }
 function drawStars(amount) {
   if (starsDrawn === false) {
@@ -407,17 +443,25 @@ function createLandingPad() {
   landingPadHasBeenCreated = true;
 }
 function collisionDetection() {
-  print(1420 - characterX + " " + Math.abs(characterY) + " " + landingPadX + " " + landingPadY);
   if (Math.abs(translateY) > 4400 && Math.abs(translateY) < 4670) {
     if (1420 - characterX > landingPadX && 1420 - characterX < landingPadX + 200) {
-      //landing pad collision
-      print("You have landed");
-      gameWon = true;
-      gameOver = true;
-      gameStart = false;
+      if (velocity > -4 && velocity < 1) {
+        //landing pad collision
+        gameOverText = "You have landed safely";
+        gameWon = true;
+        gameOver = true;
+        gameStart = false;
+      } else {
+        gameOverText = "You need to land softly";
+        gameLost = true;
+        gameOver = true;
+        gameStart = false;
+      }
     }
   }
-  if (translateY < -4950 || translateY > 150 || translateX < -1160 || translateX > 450) {
+  if (translateY < -4950 || translateY > 50 || translateX < -1160 || translateX > 450) {
+    gameOverText = "You have left the atmosphere";
+    leftAtmosphereText = "You need to land on the landing pad";
     gameLost = true;
     gameOver = true;
     gameStart = false;
@@ -436,6 +480,8 @@ function drawGameOver() {
     textFont("Hoover");
     textAlign(CENTER);
     text("YOU WON!", 720 / 2, 220);
+    textSize(18);
+    text(gameOverText, 720 / 2, 260);
     textSize(20);
     text("Press 'ESC' to go home", 720 / 2, 420);
     text("Press 'R' to restart", 720 / 2, 380);
@@ -454,12 +500,16 @@ function drawGameOver() {
     textAlign(CENTER);
     text("YOU LOST!", 720 / 2, 220);
     textSize(18);
-    text("You need to land on the platform", 720 / 2, 260);
+    text(gameOverText, 720 / 2, 260);
+    if (leftAtmosphereText != "") {
+      text(leftAtmosphereText, 720 / 2, 290);
+    }
     textSize(20);
     text("Press 'ESC' to go home", 720 / 2, 420);
     text("Press 'R' to restart", 720 / 2, 380);
     pop();
     gameOverHasBeenDrawn = true;
+    leftAtmosphereText = "";
   }
   if (keyIsDown(82)) {
     // R key for restarting
@@ -492,5 +542,32 @@ function drawGameOver() {
     gameLost = false;
     gameWon = false;
     clear();
+  }
+}
+function drawStatistics() {
+  fill("white");
+  textSize(20);
+  textFont("Hoover");
+
+  let roundedVelocity = Math.round(velocity * 10) / 100;
+  text("velocity: " + roundedVelocity, 25, 25);
+}
+function landingWarning() {
+  print(translateY);
+  if (translateY < -3800) {
+    push();
+    fill("rgb(27, 27, 27)");
+    rect(10, 515, 346, 71);
+    push();
+    noFill();
+    stroke("white");
+    strokeWeight(4);
+    rect(10, 515, 346, 71);
+    pop();
+    textSize(18);
+    fill("white");
+    text("Find the PLATFORM in the WATER,", 55, 545);
+    text("and land SOFTLY to WIN.", 55, 565);
+    pop();
   }
 }
